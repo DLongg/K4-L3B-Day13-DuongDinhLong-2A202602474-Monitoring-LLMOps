@@ -65,12 +65,14 @@
 
 ## 6. Dashboard, SLO và alerts
 
-- **Dashboard và sáu panel:**
-- **SLO và lý do chọn:**
-- **Cách tính error budget:**
+- **Dashboard và sáu panel:** Dựng đủ 6 panel chuẩn từ nguồn `data/logs.jsonl` theo [config/dashboard.yaml](file:///d:/AI_20K/Lab13/K4-L3B-Day13-DuongDinhLong-2A202602474-Monitoring-LLMOps/config/dashboard.yaml): (1) Latency: đo P50, P95, P99 và TTFT P95 với threshold P95 <= 3000ms; (2) Traffic: đo request rate theo phút với threshold >= 1 req/min; (3) Errors: đo error_rate_pct và tool_success_rate_pct (retrieval) với threshold error rate <= 2%; (4) Cost: đo chi phí USD theo phút và tổng chi phí với threshold total <= 2.5 USD; (5) Tokens: đo tổng tokens_in và tokens_out với threshold sum <= 50,000 tokens; (6) Quality: đo chất lượng trung bình với threshold mean >= 0.75.
+- **SLO và lý do chọn:** Chọn primary SLO `fast_successful_requests` với mục tiêu 99.5% request thành công và có `latency_ms <= 3000ms` trong cửa sổ 28 ngày. Lý do chọn: Người dùng chatbot LLM cần trải nghiệm mượt mà, phản hồi dưới 3 giây và không bị lỗi gián đoạn. Dữ liệu baseline thực tế cho thấy latency P95 khoảng 395ms và retrieval success 100%, do đó ngưỡng 3000ms bảo đảm trải nghiệm tốt mà vẫn có biên độ an toàn khi traffic biến động.
+- **Cách tính error budget:** Với target SLO 99.5%, error budget là 0.5% (100% - 99.5%). Trong cửa sổ 28 ngày, nếu hệ thống nhận 10,000 request thì error budget cho phép tối đa 50 request bị lỗi (HTTP 500) hoặc có latency vượt quá 3000ms trước khi vi phạm cam kết dịch vụ.
 - **Ba alert và runbook tương ứng:**
+  - `HighLatencyP95` (warning, 5m): kích hoạt khi `p95(latency_ms) > 3000ms` duy trì 5 phút. Runbook tại `docs/alerts.md#alert-1`.
+  - `HighErrorRate` (critical, 5m): kích hoạt khi `error_rate_pct > 2%` duy trì 5 phút. Runbook tại `docs/alerts.md#alert-2`.
+  - `LowRetrievalSuccess` (warning, 5m): kích hoạt khi `retrieval_success_rate_pct < 90%` duy trì 5 phút. Runbook tại `docs/alerts.md#alert-3`.
 
-> Ví dụ cách viết error budget: "SLO 99.5% trong 28 ngày nghĩa là error budget 0.5%. Nếu workload có 10,000 request thì tối đa 50 request được phép lỗi hoặc chậm hơn ngưỡng SLO."
 
 ## 7. Điều tra challenge
 
