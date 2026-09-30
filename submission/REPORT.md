@@ -4,13 +4,13 @@
 
 ## 1. Thông tin học viên
 
-- **Họ và tên:**
-- **MSSV:**
+- **Họ và tên:** Dương Đình Long
+- **MSSV:** 2A202602474
 - **Lớp:** K4-L3B
-- **Repository URL:**
+- **Repository URL:** https://github.com/DLongg/K4-L3B-Day13-DuongDinhLong-2A202602474-Monitoring-LLMOps
 - **Commit SHA cuối:**
 - **Challenge ID:**
-- **Tên project Langfuse cá nhân:** `day13-k4-l3b-<MSSV>`
+- **Tên project Langfuse cá nhân:** `day13-k4-l3b-2A202602474`
 
 ## 2. Evidence index
 
@@ -37,20 +37,20 @@
 
 | Nội dung | Baseline | Kết quả cuối | Nhận xét |
 |---|---|---|---|
-| `validate_logs.py` | | | |
-| `validate_dashboard.py` | | | |
-| `pytest` | | | |
-| Số traces hợp lệ | | | |
-| Số PII leak | | | |
-| Latency P95 / TTFT P95 | | | |
-| Retrieval success rate | | | |
+| `validate_logs.py` | 30/100 | 100/100 | Baseline thiếu correlation_id và enrichment fields; Sau CP1 đã đạt tối đa |
+| `validate_dashboard.py` | 6/6 panel | 6/6 panel | Hợp lệ theo schema và contract |
+| `pytest` | 22 passed | 25 passed | Đã bổ sung đầy đủ tests cho CCCD, Credit Card, Passport |
+| Số traces hợp lệ | 10 traces | 10 traces | Đã tạo trong project Langfuse cá nhân |
+| Số PII leak | 0 | 0 | Không rò rỉ PII trong structured log |
+| Latency P95 / TTFT P95 | 393ms / 50ms | 395ms / 50ms | Baseline và runtime ổn định |
+| Retrieval success rate | 100% | 100% | Toàn bộ 10/10 request baseline thành công |
 
 ## 4. Logging và PII
 
-- **Cách tạo/nhận và truyền correlation ID:**
-- **Các metadata được ghi vào structured log:**
-- **Cách bảo đảm PII được scrub trước khi ghi:**
-- **Cách kiểm chứng kết quả:**
+- **Cách tạo/nhận và truyền correlation ID:** Trong `CorrelationIdMiddleware`, middleware kiểm tra header `x-request-id`. Nếu có thì sử dụng, nếu không có thì tự sinh ngẫu nhiên định dạng `req-<8-hex>` bằng `f"req-{uuid.uuid4().hex[:8]}"`. Trước mỗi request gọi `clear_contextvars()` để chống leak context giữa các request, sau đó gọi `bind_contextvars(correlation_id=correlation_id)` và gán `request.state.correlation_id`. Sau khi gọi `call_next(request)`, middleware gán `correlation_id` và thời gian xử lý `duration_ms` vào response headers `x-request-id` và `x-response-time-ms`.
+- **Các metadata được ghi vào structured log:** Bao gồm các trường hệ thống bắt buộc (`ts`, `level`, `service`, `event`, `correlation_id`) và các trường enrichment từ context request (`user_id_hash` băm sha256 12 ký tự, `session_id`, `feature`, `model`, `env`). Với event `response_sent`, còn ghi nhận `latency_ms`, `ttft_ms`, `tokens_in`, `tokens_out`, `cost_usd`, `quality_score`, `tool_name`, `tool_success` và `payload` chứa `answer_preview`.
+- **Cách bảo đảm PII được scrub trước khi ghi:** Processor `scrub_event` duyệt đệ quy qua các giá trị chuỗi, danh sách, và từ điển, sử dụng các regex pattern trong `PII_PATTERNS` để thay thế thông tin nhạy cảm (email, số điện thoại Việt Nam các định dạng, CCCD 12 số, thẻ thanh toán 16 số, hộ chiếu). `scrub_event` được đăng ký vào pipeline `structlog.configure` đứng ngay TRƯỚC `JsonlFileProcessor` và `JSONRenderer`, đảm bảo mọi dữ liệu nhạy cảm được che (redacted) trước khi render hoặc ghi file xuống đĩa.
+- **Cách kiểm chứng kết quả:** Chạy `python scripts/load_test.py` với các câu hỏi chứa dữ liệu nhạy cảm mẫu, sau đó chạy `python scripts/validate_logs.py` kiểm tra toàn bộ file `data/logs.jsonl` đạt 100/100, 0 PII leaks, 10 unique correlation IDs; đồng thời 25/25 unit tests bao gồm toàn bộ tests PII trong `tests/test_pii.py` đều pass.
 
 ## 5. Tracing và prompt versioning
 
